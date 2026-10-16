@@ -104,13 +104,17 @@ class AudioEngine(private val defaultSessionId: Int = 0) {
     ) {
         // Build DynamicsProcessing stereo configuration:
         // InputGain = true, Limiter = true, PreEQ/MBC/PostEQ = false (bypassed for maximum purity)
+        // DynamicsProcessing stereo configuration:
+        // variant, channelCount, isInputGainByChannel, preEqBandCount, isMbcByChannel, mbcBandCount, isPostEqByChannel, postEqBandCount, isLimiterByChannel
         val builder = DynamicsProcessing.Config.Builder(
             DynamicsProcessing.VARIANT_FAVOR_FREQUENCY_RESOLUTION,
             CHANNEL_COUNT,
             true,   // isInputGainByChannel
-            false,  // isPreEqByChannel
+            0,      // preEqBandCount
             false,  // isMbcByChannel
+            0,      // mbcBandCount
             false,  // isPostEqByChannel
+            0,      // postEqBandCount
             true    // isLimiterByChannel
         )
 
