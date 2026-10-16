@@ -1,0 +1,29 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer accent ring -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#00E5FF"
+        android:strokeWidth="3.5"
+        android:pathData="M 54 22 A 32 32 0 1 1 53.99 22" />
+
+    <!-- Sound waves / equalizer bars inside -->
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M38,50 L42,50 L42,66 L38,66 Z" />
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M46,42 L50,42 L50,74 L46,74 Z" />
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M54,34 L58,34 L58,82 L54,82 Z" />
+    <path
+        android:fillColor="#00E676"
+        android:pathData="M62,42 L66,42 L66,74 L62,74 Z" />
+    <path
+        android:fillColor="#00E5FF"
+        android:pathData="M70,50 L74,50 L74,66 L70,66 Z" />
+</vector>

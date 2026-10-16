@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">VolumeBooster</string>
+    <string name="notification_channel_name">Serviço de Áudio</string>
+    <string name="notification_channel_desc">Mantém o processamento de ganho e limiter ativo em segundo plano.</string>
+    <string name="notification_running_title">VolumeBooster Ativo</string>
+    <string name="notification_running_text">Ganho: %1$s dB | Limiter: %2$s</string>
+    <string name="action_turn_off">Desativar</string>
+    <string name="action_toggle_limiter">Alternar Limiter</string>
+</resources>
