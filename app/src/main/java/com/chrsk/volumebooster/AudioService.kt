@@ -8,8 +8,13 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
+import android.media.AudioManager
+import android.media.AudioPlaybackConfiguration
+import android.media.audiofx.AudioEffect
 import android.os.Build
+import android.os.Handler
 import android.os.IBinder
+import android.os.Looper
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -38,6 +43,7 @@ class AudioService : Service() {
     private lateinit var audioEngine: AudioEngine
     private lateinit var notificationManager: NotificationManager
     private var demoPlayer: SoundDemoPlayer? = null
+    private var playbackCallback: AudioManager.AudioPlaybackCallback? = null
 
     companion object {
         const val CHANNEL_ID = "volumebooster_foreground_channel"
@@ -147,9 +153,17 @@ class AudioService : Service() {
         notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         audioEngine = AudioEngine(defaultSessionId = 0)
 
-        demoPlayer = SoundDemoPlayer { playing ->
-            audioEngine.setDemoPlaying(playing)
-        }
+        demoPlayer = SoundDemoPlayer(
+            onSessionStarted = { sessionId ->
+                audioEngine.openSession(sessionId, "Demo Áudio Interno")
+            },
+            onSessionStopped = { sessionId ->
+                audioEngine.closeSession(sessionId)
+            },
+            onPlaybackStateChanged = { playing ->
+                audioEngine.setDemoPlaying(playing)
+            }
+        )
 
         createNotificationChannel()
 
@@ -173,6 +187,9 @@ class AudioService : Service() {
             sessionId = 0
         )
 
+        // Start listening to system audio playback events
+        registerPlaybackCallback()
+
         val notification = buildNotification(audioEngine.state.value)
         val serviceType = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
@@ -182,6 +199,52 @@ class AudioService : Service() {
 
         ServiceCompat.startForeground(this, NOTIFICATION_ID, notification, serviceType)
         Log.i(tag, "AudioService created and started in foreground.")
+    }
+
+    private fun registerPlaybackCallback() {
+        try {
+            val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
+            playbackCallback = object : AudioManager.AudioPlaybackCallback() {
+                override fun onPlaybackConfigChanged(configs: MutableList<AudioPlaybackConfiguration>) {
+                    super.onPlaybackConfigChanged(configs)
+                    for (config in configs) {
+                        val sessionId = extractSessionId(config)
+                        if (sessionId > 0 && sessionId != AudioEffect.ERROR_BAD_VALUE) {
+                            audioEngine.openSession(sessionId, "Stream de Áudio ($sessionId)")
+                        }
+                    }
+                }
+            }
+            audioManager.registerAudioPlaybackCallback(playbackCallback!!, Handler(Looper.getMainLooper()))
+            Log.i(tag, "AudioPlaybackCallback registered for continuous session interception.")
+        } catch (e: Exception) {
+            Log.w(tag, "Failed to register AudioPlaybackCallback: ${e.message}")
+        }
+    }
+
+    private fun unregisterPlaybackCallback() {
+        try {
+            val audioManager = getSystemService(AUDIO_SERVICE) as AudioManager
+            playbackCallback?.let { audioManager.unregisterAudioPlaybackCallback(it) }
+            playbackCallback = null
+        } catch (e: Exception) {
+            Log.w(tag, "Error unregistering AudioPlaybackCallback: ${e.message}")
+        }
+    }
+
+    private fun extractSessionId(config: AudioPlaybackConfiguration): Int {
+        val methodNames = arrayOf("getSessionId", "getClientAudioSessionId")
+        for (name in methodNames) {
+            try {
+                val method = AudioPlaybackConfiguration::class.java.getDeclaredMethod(name)
+                method.isAccessible = true
+                val res = method.invoke(config)
+                if (res is Int && res > 0) {
+                    return res
+                }
+            } catch (_: Exception) {}
+        }
+        return -1
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -263,6 +326,7 @@ class AudioService : Service() {
     private fun stopForegroundService() {
         isRunning = false
         demoPlayer?.stopDemo()
+        unregisterPlaybackCallback()
         audioEngine.release()
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -344,6 +408,7 @@ class AudioService : Service() {
         super.onDestroy()
         isRunning = false
         demoPlayer?.stopDemo()
+        unregisterPlaybackCallback()
         serviceScope.cancel()
         audioEngine.release()
         Log.i(tag, "AudioService destroyed.")

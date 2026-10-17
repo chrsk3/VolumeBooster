@@ -1,7 +1,9 @@
 package com.chrsk.volumebooster
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.audiofx.AudioEffect
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -20,7 +22,7 @@ class MainActivity : ComponentActivity() {
 
     private val requestPermissionsLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { permissions ->
+    ) { _ ->
         // Permissions granted/denied handled gracefully; AudioService continues running
     }
 
@@ -30,6 +32,9 @@ class MainActivity : ComponentActivity() {
 
         requestRequiredPermissions()
 
+        // Check if opened from an external player (Spotify, Deezer, etc.)
+        handleIncomingSessionIntent(intent)
+
         // Start Foreground Service
         AudioService.start(this)
 
@@ -37,6 +42,20 @@ class MainActivity : ComponentActivity() {
             VolumeBoosterTheme {
                 VolumeBoosterScreen(viewModel = viewModel)
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleIncomingSessionIntent(intent)
+    }
+
+    private fun handleIncomingSessionIntent(intent: Intent?) {
+        val sessionId = intent?.getIntExtra(AudioEffect.EXTRA_AUDIO_SESSION, 0) ?: 0
+        val packageName = intent?.getStringExtra(AudioEffect.EXTRA_PACKAGE_NAME) ?: "Player Externo"
+        if (sessionId != 0 && sessionId != AudioEffect.ERROR_BAD_VALUE) {
+            AudioService.openSession(this, sessionId, packageName)
         }
     }
 
