@@ -35,20 +35,20 @@ jobs:
 
       - name: Rename APK for release
         run: |
-          cp app/build/outputs/apk/debug/app-debug.apk VolumeBooster-v1.0.0.apk
+          cp app/build/outputs/apk/debug/app-debug.apk VolumeBooster.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: VolumeBooster-APK
-          path: VolumeBooster-v1.0.0.apk
+          path: VolumeBooster.apk
           if-no-files-found: error
 
       - name: Create GitHub Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create v1.0.0 VolumeBooster-v1.0.0.apk \
-            --title "VolumeBooster v1.0.0" \
-            --notes "Build automático do VolumeBooster com Jetpack Compose, DynamicsProcessing e Limitador de Picos." \
-            || gh release upload v1.0.0 VolumeBooster-v1.0.0.apk --clobber
+          gh release create v1.0.1 VolumeBooster.apk \
+            --title "VolumeBooster v1.0.1" \
+            --notes "Ajuste de insets (statusBarsPadding / edge-to-edge) e nome de arquivo unificado." \
+            || gh release upload v1.0.1 VolumeBooster.apk --clobber
