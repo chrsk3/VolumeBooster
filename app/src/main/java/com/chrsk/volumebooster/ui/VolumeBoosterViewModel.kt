@@ -83,4 +83,8 @@ class VolumeBoosterViewModel(application: Application) : AndroidViewModel(applic
     fun setPreset(presetGain: Float) {
         onGainChange(presetGain)
     }
+
+    fun toggleDemo() {
+        AudioService.toggleDemo(context)
+    }
 }

@@ -55,6 +55,16 @@
             </intent-filter>
         </receiver>
 
+        <!-- Broadcast receiver for media player audio session detection (Spotify, Deezer, etc.) -->
+        <receiver
+            android:name=".AudioSessionReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.media.action.OPEN_AUDIO_EFFECT_CONTROL_SESSION" />
+                <action android:name="android.media.action.CLOSE_AUDIO_EFFECT_CONTROL_SESSION" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

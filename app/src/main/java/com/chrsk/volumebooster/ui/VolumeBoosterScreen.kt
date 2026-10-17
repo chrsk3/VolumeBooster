@@ -1,10 +1,7 @@
 package com.chrsk.volumebooster.ui
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,12 +25,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.GraphicEq
+import androidx.compose.material.icons.filled.Headphones
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.VolumeUp
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -48,18 +47,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.chrsk.volumebooster.EngineType
 import com.chrsk.volumebooster.ui.theme.AccentAmber
 import com.chrsk.volumebooster.ui.theme.AccentCyan
-import com.chrsk.volumebooster.ui.theme.AccentCyanDim
 import com.chrsk.volumebooster.ui.theme.AccentGreen
-import com.chrsk.volumebooster.ui.theme.AccentRed
 import com.chrsk.volumebooster.ui.theme.AmoledBlack
 import com.chrsk.volumebooster.ui.theme.DarkBorder
 import com.chrsk.volumebooster.ui.theme.DarkCard
@@ -93,17 +87,26 @@ fun VolumeBoosterScreen(
             // Top Bar / Title
             AppHeader()
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             // Status Indicator (Active / Inactive / Audio Output Route)
             StatusIndicatorCard(
                 isEnabled = state.isEnabled,
                 engineType = state.engineType,
                 connectedDevice = state.connectedDevice,
-                sessionId = state.sessionId
+                sessionId = state.sessionId,
+                activeSessions = state.activeSessions
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Real-Time Demo Sound Test Card
+            DemoAudioCard(
+                isDemoPlaying = state.isDemoPlaying,
+                onToggleDemo = { viewModel.toggleDemo() }
+            )
+
+            Spacer(modifier = Modifier.height(18.dp))
 
             // Master Switch Card (Large toggle at top)
             MasterToggleCard(
@@ -111,7 +114,7 @@ fun VolumeBoosterScreen(
                 onToggle = { viewModel.toggleMaster() }
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             // Gain Preamp Card (Slider 0.0 to +12.0 dB with real-time numeric readout)
             PreampGainCard(
@@ -121,7 +124,7 @@ fun VolumeBoosterScreen(
                 onPresetClick = { viewModel.setPreset(it) }
             )
 
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(18.dp))
 
             // Dedicated Peak Limiter Card (Poweramp style)
             PeakLimiterCard(
@@ -131,7 +134,12 @@ fun VolumeBoosterScreen(
                 onToggle = { viewModel.toggleLimiter() }
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(18.dp))
+
+            // Poweramp DVC Guidance Notice
+            PowerampNoticeCard()
+
+            Spacer(modifier = Modifier.height(20.dp))
 
             // Technical Audio Pipeline Info Footer
             AudioEngineSpecsFooter(
@@ -140,7 +148,7 @@ fun VolumeBoosterScreen(
                 lastError = state.lastError
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
         }
     }
 }
@@ -148,7 +156,9 @@ fun VolumeBoosterScreen(
 @Composable
 private fun AppHeader() {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -191,7 +201,8 @@ private fun StatusIndicatorCard(
     isEnabled: Boolean,
     engineType: EngineType,
     connectedDevice: String?,
-    sessionId: Int
+    sessionId: Int,
+    activeSessions: List<String>
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -232,9 +243,10 @@ private fun StatusIndicatorCard(
                 }
 
                 val engineLabel = when (engineType) {
-                    EngineType.DYNAMICS_PROCESSING -> "DynamicsProcessing (HAL)"
-                    EngineType.LOUDNESS_ENHANCER -> "LoudnessEnhancer"
-                    EngineType.NONE -> if (isEnabled) "Carregando..." else "Desconectado"
+                    EngineType.HYBRID_HARDWARE_DSP -> "DSP Híbrido (Ganho + Limiter)"
+                    EngineType.LOUDNESS_ENHANCER -> "LoudnessEnhancer (Ativo)"
+                    EngineType.DYNAMICS_PROCESSING -> "DynamicsProcessing"
+                    EngineType.NONE -> if (isEnabled) "Inicializando..." else "Bypass"
                 }
 
                 Text(
@@ -251,7 +263,7 @@ private fun StatusIndicatorCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Icon(
-                    imageVector = if (connectedDevice != null) Icons.Default.Bluetooth else Icons.Default.VolumeUp,
+                    imageVector = if (connectedDevice != null) Icons.Default.Bluetooth else Icons.Default.Headphones,
                     contentDescription = null,
                     tint = if (connectedDevice != null) AccentCyan else TextSecondary,
                     modifier = Modifier.size(16.dp)
@@ -262,6 +274,89 @@ private fun StatusIndicatorCard(
                     color = TextPrimary
                 )
             }
+
+            // Status row 3: Detected active sessions if any
+            if (activeSessions.isNotEmpty()) {
+                Text(
+                    text = "Players vinculados: " + activeSessions.joinToString(", "),
+                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
+                    color = AccentGreen
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DemoAudioCard(
+    isDemoPlaying: Boolean,
+    onToggleDemo: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { onToggleDemo() },
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isDemoPlaying) DarkCardHighlight else DarkCard
+        ),
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = androidx.compose.ui.graphics.SolidColor(
+                if (isDemoPlaying) AccentCyan else DarkBorder
+            )
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(if (isDemoPlaying) AccentCyan.copy(alpha = 0.2f) else AmoledBlack)
+                        .border(
+                            1.dp,
+                            if (isDemoPlaying) AccentCyan else DarkBorder,
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isDemoPlaying) Icons.Default.Stop else Icons.Default.PlayArrow,
+                        contentDescription = null,
+                        tint = if (isDemoPlaying) AccentCyan else TextPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Column {
+                    Text(
+                        text = if (isDemoPlaying) "Tocando Áudio de Teste" else "Ouvir Demonstração do Ganho",
+                        style = MaterialTheme.typography.titleMedium.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = if (isDemoPlaying) "Alterne o switch ou slider para ouvir a diferença" else "Toque para reproduzir um som e checar o ganho no fone",
+                        style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp),
+                        color = TextSecondary
+                    )
+                }
+            }
+
+            Text(
+                text = if (isDemoPlaying) "PARAR" else "TESTAR",
+                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                color = if (isDemoPlaying) AccentCyan else AccentGreen
+            )
         }
     }
 }
@@ -404,7 +499,7 @@ private fun PreampGainCard(
                 value = gainDb,
                 onValueChange = onGainChange,
                 valueRange = 0.0f..12.0f,
-                steps = 119, // 0.1 dB increments over 12.0 dB span
+                steps = 119, // 0.1 dB increments
                 enabled = isEnabled,
                 colors = SliderDefaults.colors(
                     thumbColor = if (isEnabled) AccentCyan else TextTertiary,
@@ -586,6 +681,38 @@ private fun PeakLimiterCard(
             Text(
                 text = "Configuração calibrada para estancar picos transitórios e suprimir estalos em frequências subgraves ao tocar faixas masterizadas em 0 dBFS.",
                 style = MaterialTheme.typography.bodyMedium,
+                color = TextSecondary
+            )
+        }
+    }
+}
+
+@Composable
+private fun PowerampNoticeCard() {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = DarkCard.copy(alpha = 0.7f)),
+        border = CardDefaults.outlinedCardBorder().copy(
+            brush = androidx.compose.ui.graphics.SolidColor(DarkBorder)
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = AccentCyan,
+                modifier = Modifier.size(18.dp)
+            )
+            Text(
+                text = "Nota Poweramp: Para amplificar faixas do Poweramp, abra Configurações > Áudio > Desative 'DVC' (Direct Volume Control), pois o DVC ignora a mixagem do sistema.",
+                style = MaterialTheme.typography.bodyMedium.copy(fontSize = 11.sp),
                 color = TextSecondary
             )
         }

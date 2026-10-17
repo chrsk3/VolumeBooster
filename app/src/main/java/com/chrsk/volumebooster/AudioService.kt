@@ -37,6 +37,7 @@ class AudioService : Service() {
     private lateinit var preferencesManager: PreferencesManager
     private lateinit var audioEngine: AudioEngine
     private lateinit var notificationManager: NotificationManager
+    private var demoPlayer: SoundDemoPlayer? = null
 
     companion object {
         const val CHANNEL_ID = "volumebooster_foreground_channel"
@@ -51,11 +52,16 @@ class AudioService : Service() {
         const val ACTION_TOGGLE_LIMITER = "com.chrsk.volumebooster.action.TOGGLE_LIMITER"
         const val ACTION_DEVICE_CONNECTED = "com.chrsk.volumebooster.action.DEVICE_CONNECTED"
         const val ACTION_DEVICE_DISCONNECTED = "com.chrsk.volumebooster.action.DEVICE_DISCONNECTED"
+        const val ACTION_OPEN_SESSION = "com.chrsk.volumebooster.action.OPEN_SESSION"
+        const val ACTION_CLOSE_SESSION = "com.chrsk.volumebooster.action.CLOSE_SESSION"
+        const val ACTION_TOGGLE_DEMO = "com.chrsk.volumebooster.action.TOGGLE_DEMO"
 
         const val EXTRA_GAIN_DB = "extra_gain_db"
         const val EXTRA_LIMITER_ENABLED = "extra_limiter_enabled"
         const val EXTRA_MASTER_ENABLED = "extra_master_enabled"
         const val EXTRA_DEVICE_NAME = "extra_device_name"
+        const val EXTRA_SESSION_ID = "extra_session_id"
+        const val EXTRA_PACKAGE_NAME = "extra_package_name"
 
         var isRunning: Boolean = false
             private set
@@ -104,6 +110,34 @@ class AudioService : Service() {
             }
             context.startService(intent)
         }
+
+        fun openSession(context: Context, sessionId: Int, packageName: String) {
+            val intent = Intent(context, AudioService::class.java).apply {
+                action = ACTION_OPEN_SESSION
+                putExtra(EXTRA_SESSION_ID, sessionId)
+                putExtra(EXTRA_PACKAGE_NAME, packageName)
+            }
+            if (isRunning) {
+                context.startService(intent)
+            }
+        }
+
+        fun closeSession(context: Context, sessionId: Int) {
+            val intent = Intent(context, AudioService::class.java).apply {
+                action = ACTION_CLOSE_SESSION
+                putExtra(EXTRA_SESSION_ID, sessionId)
+            }
+            if (isRunning) {
+                context.startService(intent)
+            }
+        }
+
+        fun toggleDemo(context: Context) {
+            val intent = Intent(context, AudioService::class.java).apply {
+                action = ACTION_TOGGLE_DEMO
+            }
+            context.startService(intent)
+        }
     }
 
     override fun onCreate() {
@@ -112,6 +146,10 @@ class AudioService : Service() {
         preferencesManager = PreferencesManager(this)
         notificationManager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         audioEngine = AudioEngine(defaultSessionId = 0)
+
+        demoPlayer = SoundDemoPlayer { playing ->
+            audioEngine.setDemoPlaying(playing)
+        }
 
         createNotificationChannel()
 
@@ -198,6 +236,25 @@ class AudioService : Service() {
             ACTION_DEVICE_DISCONNECTED -> {
                 audioEngine.setConnectedDevice(null)
             }
+
+            ACTION_OPEN_SESSION -> {
+                val sessionId = intent.getIntExtra(EXTRA_SESSION_ID, 0)
+                val pkg = intent.getStringExtra(EXTRA_PACKAGE_NAME) ?: "Player"
+                if (sessionId != 0) {
+                    audioEngine.openSession(sessionId, pkg)
+                }
+            }
+
+            ACTION_CLOSE_SESSION -> {
+                val sessionId = intent.getIntExtra(EXTRA_SESSION_ID, 0)
+                if (sessionId != 0) {
+                    audioEngine.closeSession(sessionId)
+                }
+            }
+
+            ACTION_TOGGLE_DEMO -> {
+                demoPlayer?.toggleDemo()
+            }
         }
 
         return START_STICKY
@@ -205,8 +262,9 @@ class AudioService : Service() {
 
     private fun stopForegroundService() {
         isRunning = false
+        demoPlayer?.stopDemo()
         audioEngine.release()
-        stopForeground(STOP_FOREGROUND_REMOVE)
+        ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
 
@@ -285,6 +343,7 @@ class AudioService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         isRunning = false
+        demoPlayer?.stopDemo()
         serviceScope.cancel()
         audioEngine.release()
         Log.i(tag, "AudioService destroyed.")

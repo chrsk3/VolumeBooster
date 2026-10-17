@@ -48,7 +48,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create v1.0.1 VolumeBooster.apk \
-            --title "VolumeBooster v1.0.1" \
-            --notes "Ajuste de insets (statusBarsPadding / edge-to-edge) e nome de arquivo unificado." \
-            || gh release upload v1.0.1 VolumeBooster.apk --clobber
+          gh release create v1.0.2 VolumeBooster.apk \
+            --title "VolumeBooster v1.0.2" \
+            --notes "Motor de áudio atualizado com LoudnessEnhancer ativo no HAL de áudio, interceptador de sessões e demo player." \
+            || gh release upload v1.0.2 VolumeBooster.apk --clobber
